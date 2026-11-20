@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ระบบบริหารจัดการคำสั่งซื้อและคลังสินค้าหน้าร้าน (POS)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script crossorigin src="https://unpkg.com/@mui/material@5/umd/material-ui.production.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Prompt', sans-serif; background: #f0f2f5; min-height: 100vh; }
+    #root { min-height: 100vh; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const {
+      Container, Paper, Grid, Stack, TextField, Button, Typography, Box,
+      Card, CardMedia, CardContent, CardActions, Chip, Divider,
+      Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
+      AppBar, Toolbar, Badge, IconButton, Switch, FormControlLabel,
+      Snackbar, Alert, LinearProgress, Dialog, DialogTitle, DialogContent, DialogActions,
+      createTheme, ThemeProvider, CssBaseline, Tooltip
+    } = MaterialUI;
+
+    const theme = createTheme({
+      typography: { fontFamily: "'Prompt', sans-serif" },
+      palette: {
+        primary: { main: '#1e88e5' },
+        secondary: { main: '#ff6f00' },
+        success: { main: '#43a047' },
+        warning: { main: '#fb8c00' },
+        error: { main: '#e53935' },
+      },
+      shape: { borderRadius: 12 },
+      components: {
+        MuiCard: { styleOverrides: { root: { borderRadius: 16, transition: 'transform 0.2s, box-shadow 0.2s', '&:hover': { transform: 'translateY(-4px)', boxShadow: '0 8px 24px rgba(0,0,0,0.12)' } } } },
+        MuiButton: { styleOverrides: { root: { borderRadius: 10, textTransform: 'none', fontWeight: 600 } } },
+        MuiChip: { styleOverrides: { root: { fontWeight: 500 } } },
+      }
+    });
+
+    // --- Initial product data ---
+    const initialProducts = [
+      { id: 1, name: 'กาแฟลาเต้', price: 65, stock: 20, image: 'https://images.unsplash.com/photo-1461023058943-07fcbe16d735?w=300&h=200&fit=crop', category: 'เครื่องดื่ม', active: true },
+      { id: 2, name: 'ชาเขียวมัทฉะ', price: 75, stock: 15, image: 'https://images.unsplash.com/photo-1515823064-d6e0c04616a7?w=300&h=200&fit=crop', category: 'เครื่องดื่ม', active: true },
+      { id: 3, name: 'ครัวซองต์', price: 55, stock: 8, image: 'https://images.unsplash.com/photo-1555507036-ab1f4038024a?w=300&h=200&fit=crop', category: 'เบเกอรี่', active: true },
+      { id: 4, name: 'ช็อกโกแลตเค้ก', price: 85, stock: 4, image: 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=300&h=200&fit=crop', category: 'เบเกอรี่', active: true },
+      { id: 5, name: 'แซนด์วิช', price: 90, stock: 12, image: 'https://images.unsplash.com/photo-1528735602780-2552fd46c7af?w=300&h=200&fit=crop', category: 'อาหาร', active: true },
+      { id: 6, name: 'สลัดผลไม้', price: 70, stock: 3, image: 'https://images.unsplash.com/photo-1564093497595-593b96d80180?w=300&h=200&fit=crop', category: 'อาหาร', active: true },
+      { id: 7, name: 'น้ำส้มคั้นสด', price: 50, stock: 25, image: 'https://images.unsplash.com/photo-1621506289937-a8e4df240d0b?w=300&h=200&fit=crop', category: 'เครื่องดื่ม', active: true },
+      { id: 8, name: 'บราวนี่', price: 60, stock: 2, image: 'https://images.unsplash.com/photo-1606313564200-e75d5e30476c?w=300&h=200&fit=crop', category: 'เบเกอรี่', active: true },
+    ];
+
+    // --- Discount codes ---
+    const discountCodes = {
+      'SAVE10': { type: 'percent', value: 10, label: 'ลด 10%' },
+      'SAVE20': { type: 'percent', value: 20, label: 'ลด 20%' },
+      'OFF50': { type: 'fixed', value: 50, label: 'ลด 50 บาท' },
+      'OFF100': { type: 'fixed', value: 100, label: 'ลด 100 บาท' },
+    };
+
+    function App() {
+      const [products, setProducts] = React.useState(initialProducts);
+      const [cart, setCart] = React.useState([]);
+      const [discountCode, setDiscountCode] = React.useState('');
+      const [appliedDiscount, setAppliedDiscount] = React.useState(null);
+      const [cashReceived, setCashReceived] = React.useState('');
+      const [snackbar, setSnackbar] = React.useState({ open: false, message: '', severity: 'success' });
+      const [receiptOpen, setReceiptOpen] = React.useState(false);
+      const [receiptData, setReceiptData] = React.useState(null);
+
+      // --- Cart operations ---
+      const addToCart = (product) => {
+        if (!product.active) return;
+        if (product.stock <= 0) {
+          setSnackbar({ open: true, message: `${product.name} สินค้าหมด!`, severity: 'error' });
+          return;
+        }
+        setCart(prev => {
+          const existing = prev.find(item => item.id === product.id);
+          if (existing) {
+            if (existing.qty >= product.stock) {
+              setSnackbar({ open: true, message: `${product.name} สต็อกไม่เพียงพอ!`, severity: 'warning' });
+              return prev;
+            }
+            return prev.map(item => item.id === product.id ? { ...item, qty: item.qty + 1 } : item);
+          }
+          return [...prev, { id: product.id, name: product.name, price: product.price, qty: 1 }];
+        });
+        setSnackbar({ open: true, message: `เพิ่ม ${product.name} ลงตะกร้าแล้ว ✓`, severity: 'success' });
+      };
+
+      const updateQty = (id, delta) => {
+        const product = products.find(p => p.id === id);
+        setCart(prev => prev.map(item => {
+          if (item.id !== id) return item;
+          const newQty = item.qty + delta;
+          if (newQty <= 0) return null;
+          if (newQty > product.stock) {
+            setSnackbar({ open: true, message: `สต็อก ${product.name} เหลือ ${product.stock} ชิ้น`, severity: 'warning' });
+            return item;
+          }
+          return { ...item, qty: newQty };
+        }).filter(Boolean));
+      };
+
+      const removeFromCart = (id) => {
+        setCart(prev => prev.filter(item => item.id !== id));
+      };
+
+      const toggleProduct = (id) => {
+        setProducts(prev => prev.map(p => p.id === id ? { ...p, active: !p.active } : p));
+        const product = products.find(p => p.id === id);
+        setSnackbar({ open: true, message: `${product.name} ${product.active ? 'ปิด' : 'เปิด'}การจำหน่ายแล้ว`, severity: 'info' });
+      };
+
+      // --- Calculations ---
+      const subtotal = cart.reduce((sum, item) => sum + item.price * item.qty, 0);
+
+      const discountAmount = appliedDiscount
+        ? appliedDiscount.type === 'percent'
+          ? Math.round(subtotal * appliedDiscount.value / 100)
+          : Math.min(appliedDiscount.value, subtotal)
+        : 0;
+
+      const afterDiscount = subtotal - discountAmount;
+      const vat = Math.round(afterDiscount * 7 / 100);
+      const grandTotal = afterDiscount + vat;
+      const cash = Number(cashReceived) || 0;
+      const change = cash - grandTotal;
+
+      const applyDiscount = () => {
+        const code = discountCode.trim().toUpperCase();
+        if (discountCodes[code]) {
+          setAppliedDiscount(discountCodes[code]);
+          setSnackbar({ open: true, message: `ใช้โค้ด ${code} สำเร็จ: ${discountCodes[code].label}`, severity: 'success' });
+        } else {
+          setAppliedDiscount(null);
+          setSnackbar({ open: true, message: 'โค้ดส่วนลดไม่ถูกต้อง', severity: 'error' });
+        }
+      };
+
+      const totalCartItems = cart.reduce((sum, item) => sum + item.qty, 0);
+
+      // --- Checkout ---
+      const checkout = () => {
+        if (cart.length === 0) {
+          setSnackbar({ open: true, message: 'ตะกร้าว่าง!', severity: 'warning' });
+          return;
+        }
+        if (cash < grandTotal) {
+          setSnackbar({ open: true, message: 'จำนวนเงินที่รับไม่เพียงพอ!', severity: 'error' });
+          return;
+        }
+        // Deduct stock
+        setProducts(prev => prev.map(p => {
+          const cartItem = cart.find(c => c.id === p.id);
+          return cartItem ? { ...p, stock: p.stock - cartItem.qty } : p;
+        }));
+        // Save receipt data
+        setReceiptData({
+          items: [...cart],
+          subtotal, discountAmount, appliedDiscount, afterDiscount, vat, grandTotal, cash, change,
+          date: new Date().toLocaleString('th-TH'),
+          receiptNo: 'RCP-' + Date.now().toString().slice(-6),
+        });
+        setReceiptOpen(true);
+        // Clear
+        setCart([]);
+        setDiscountCode('');
+        setAppliedDiscount(null);
+        setCashReceived('');
+      };
+
+      const getStockColor = (stock) => {
+        if (stock <= 0) return 'error';
+        if (stock < 5) return 'warning';
+        return 'success';
+      };
+
+      const getStockPercent = (stock) => Math.min((stock / 25) * 100, 100);
+
+      return (
+        <ThemeProvider theme={theme}>
+          <CssBaseline />
+
+          {/* AppBar */}
+          <AppBar position="sticky" sx={{ background: 'linear-gradient(135deg, #1e88e5 0%, #1565c0 100%)' }}>
+            <Toolbar>
+              <Typography variant="h6" fontWeight={700} sx={{ flexGrow: 1 }}>
+                🏪 POS - ระบบจัดการคำสั่งซื้อและคลังสินค้า
+              </Typography>
+              <Tooltip title="รายการในตะกร้า">
+                <IconButton color="inherit" sx={{ mr: 1 }}>
+                  <Badge badgeContent={totalCartItems} color="error" showZero>
+                    <span className="material-icons">shopping_cart</span>
+                  </Badge>
+                </IconButton>
+              </Tooltip>
+              <Chip label={`${products.filter(p=>p.active).length} สินค้าเปิดขาย`} color="success" size="small" sx={{ color: '#fff', fontWeight: 600 }} />
+            </Toolbar>
+          </AppBar>
+
+          <Container maxWidth="xl" sx={{ py: 3 }}>
+            <Grid container spacing={3}>
+
+              {/* Left: Product catalog */}
+              <Grid item xs={12} md={7} lg={8}>
+                <Paper sx={{ p: 2, mb: 2, borderRadius: 3 }}>
+                  <Typography variant="h6" fontWeight={600} gutterBottom>
+                    📦 รายการสินค้า ({products.length} รายการ)
+                  </Typography>
+                </Paper>
+
+                <Grid container spacing={2}>
+                  {products.map(product => (
+                    <Grid item xs={12} sm={6} lg={4} xl={3} key={product.id}>
+                      <Card elevation={2} sx={{ opacity: product.active ? 1 : 0.5, position: 'relative' }}>
+                        {/* Low stock warning */}
+                        {product.stock > 0 && product.stock < 5 && (
+                          <Chip label="ใกล้หมด!" color="warning" size="small"
+                            sx={{ position: 'absolute', top: 8, right: 8, zIndex: 1, fontWeight: 700 }} />
+                        )}
+                        {product.stock <= 0 && (
+                          <Chip label="หมด" color="error" size="small"
+                            sx={{ position: 'absolute', top: 8, right: 8, zIndex: 1, fontWeight: 700 }} />
+                        )}
+
+                        <CardMedia component="img" height="160" image={product.image} alt={product.name}
+                          sx={{ objectFit: 'cover' }}
+                          onError={(e) => { e.target.src = 'https://via.placeholder.com/300x200?text=' + encodeURIComponent(product.name); }} />
+
+                        <CardContent sx={{ pb: 1 }}>
+                          <Stack direction="row" justifyContent="space-between" alignItems="center">
+                            <Typography variant="subtitle1" fontWeight={600}>{product.name}</Typography>
+                            <Chip label={product.category} size="small" variant="outlined" color="primary" />
+                          </Stack>
+
+                          <Typography variant="h6" color="primary" fontWeight={700} sx={{ mt: 0.5 }}>
+                            ฿{product.price.toLocaleString()}
+                          </Typography>
+
+                          {/* Stock bar */}
+                          <Box sx={{ mt: 1 }}>
+                            <Stack direction="row" justifyContent="space-between" alignItems="center">
+                              <Typography variant="caption" color="text.secondary">
+                                คงเหลือ: {product.stock} ชิ้น
+                              </Typography>
+                              <Chip label={product.stock < 5 ? (product.stock <= 0 ? 'หมด' : 'น้อย') : 'พร้อมขาย'}
+                                color={getStockColor(product.stock)} size="small" variant="outlined" />
+                            </Stack>
+                            <LinearProgress variant="determinate" value={getStockPercent(product.stock)}
+                              color={getStockColor(product.stock)}
+                              sx={{ mt: 0.5, height: 6, borderRadius: 3, bgcolor: '#e0e0e0' }} />
+                          </Box>
+                        </CardContent>
+
+                        <CardActions sx={{ px: 2, pb: 2, justifyContent: 'space-between' }}>
+                          <FormControlLabel
+                            control={<Switch checked={product.active} onChange={() => toggleProduct(product.id)} size="small" />}
+                            label={<Typography variant="caption">{product.active ? 'เปิดขาย' : 'ปิดขาย'}</Typography>}
+                          />
+                          <Button variant="contained" size="small"
+                            disabled={!product.active || product.stock <= 0}
+                            onClick={() => addToCart(product)}
+                            startIcon={<span className="material-icons" style={{fontSize:18}}>add_shopping_cart</span>}
+                            sx={{ borderRadius: 8 }}>
+                            เพิ่ม
+                          </Button>
+                        </CardActions>
+                      </Card>
+                    </Grid>
+                  ))}
+                </Grid>
+              </Grid>
+
+              {/* Right: Cart & Checkout */}
+              <Grid item xs={12} md={5} lg={4}>
+                <Paper elevation={3} sx={{ p: 3, borderRadius: 3, position: 'sticky', top: 80 }}>
+                  <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
+                    <span className="material-icons" style={{ color: '#1e88e5' }}>shopping_cart</span>
+                    <Typography variant="h6" fontWeight={700}>ตะกร้าสินค้า</Typography>
+                    <Badge badgeContent={totalCartItems} color="primary" sx={{ ml: 'auto' }} />
+                  </Stack>
+
+                  {cart.length === 0 ? (
+                    <Box sx={{ textAlign: 'center', py: 4, color: 'text.secondary' }}>
+                      <span className="material-icons" style={{ fontSize: 48, opacity: 0.3 }}>remove_shopping_cart</span>
+                      <Typography sx={{ mt: 1 }}>ตะกร้าว่าง</Typography>
+                    </Box>
+                  ) : (
+                    <React.Fragment>
+                      <TableContainer sx={{ maxHeight: 280, mb: 2 }}>
+                        <Table size="small" stickyHeader>
+                          <TableHead>
+                            <TableRow>
+                              <TableCell sx={{ fontWeight: 700 }}>สินค้า</TableCell>
+                              <TableCell align="center" sx={{ fontWeight: 700 }}>จำนวน</TableCell>
+                              <TableCell align="right" sx={{ fontWeight: 700 }}>รวม</TableCell>
+                              <TableCell align="center" sx={{ fontWeight: 700, width: 40 }}></TableCell>
+                            </TableRow>
+                          </TableHead>
+                          <TableBody>
+                            {cart.map(item => (
+                              <TableRow key={item.id}>
+                                <TableCell>
+                                  <Typography variant="body2" fontWeight={500}>{item.name}</Typography>
+                                  <Typography variant="caption" color="text.secondary">฿{item.price}</Typography>
+                                </TableCell>
+                                <TableCell align="center">
+                                  <Stack direction="row" alignItems="center" justifyContent="center" spacing={0}>
+                                    <IconButton size="small" onClick={() => updateQty(item.id, -1)} color="error">
+                                      <span className="material-icons" style={{fontSize:18}}>remove_circle</span>
+                                    </IconButton>
+                                    <Typography variant="body2" fontWeight={700} sx={{ minWidth: 24, textAlign: 'center' }}>
+                                      {item.qty}
+                                    </Typography>
+                                    <IconButton size="small" onClick={() => updateQty(item.id, 1)} color="primary">
+                                      <span className="material-icons" style={{fontSize:18}}>add_circle</span>
+                                    </IconButton>
+                                  </Stack>
+                                </TableCell>
+                                <TableCell align="right">
+                                  <Typography variant="body2" fontWeight={600}>
+                                    ฿{(item.price * item.qty).toLocaleString()}
+                                  </Typography>
+                                </TableCell>
+                                <TableCell align="center">
+                                  <IconButton size="small" onClick={() => removeFromCart(item.id)} color="error">
+                                    <span className="material-icons" style={{fontSize:18}}>delete</span>
+                                  </IconButton>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </TableContainer>
+                    </React.Fragment>
+                  )}
+
+                  <Divider sx={{ my: 2 }} />
+
+                  {/* Discount Code */}
+                  <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
+                    <TextField size="small" label="โค้ดส่วนลด" placeholder="เช่น SAVE10"
+                      value={discountCode} onChange={e => setDiscountCode(e.target.value)}
+                      fullWidth sx={{ '& .MuiOutlinedInput-root': { borderRadius: '10px' } }} />
+                    <Button variant="outlined" onClick={applyDiscount} sx={{ minWidth: 80 }}>ใช้โค้ด</Button>
+                  </Stack>
+                  {appliedDiscount && (
+                    <Alert severity="success" sx={{ mb: 2, borderRadius: 2, py: 0 }}>
+                      ใช้โค้ดสำเร็จ: {appliedDiscount.label}
+                    </Alert>
+                  )}
+
+                  {/* Summary */}
+                  <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: '#fafafa' }}>
+                    <Stack spacing={0.5}>
+                      <Stack direction="row" justifyContent="space-between">
+                        <Typography variant="body2" color="text.secondary">ราคารวม</Typography>
+                        <Typography variant="body2">฿{subtotal.toLocaleString()}</Typography>
+                      </Stack>
+                      {discountAmount > 0 && (
+                        <Stack direction="row" justifyContent="space-between">
+                          <Typography variant="body2" color="success.main">ส่วนลด</Typography>
+                          <Typography variant="body2" color="success.main">-฿{discountAmount.toLocaleString()}</Typography>
+                        </Stack>
+                      )}
+                      <Stack direction="row" justifyContent="space-between">
+                        <Typography variant="body2" color="text.secondary">VAT 7%</Typography>
+                        <Typography variant="body2">฿{vat.toLocaleString()}</Typography>
+                      </Stack>
+                      <Divider />
+                      <Stack direction="row" justifyContent="space-between">
+                        <Typography variant="subtitle1" fontWeight={700}>ยอดชำระ</Typography>
+                        <Typography variant="subtitle1" fontWeight={700} color="primary">
+                          ฿{grandTotal.toLocaleString()}
+                        </Typography>
+                      </Stack>
+                    </Stack>
+                  </Paper>
+
+                  {/* Cash received */}
+                  <TextField fullWidth size="small" label="จำนวนเงินที่รับ (บาท)" type="number"
+                    value={cashReceived} onChange={e => setCashReceived(e.target.value)}
+                    sx={{ mt: 2, '& .MuiOutlinedInput-root': { borderRadius: '10px' } }}
+                    inputProps={{ min: 0, step: 1 }} />
+
+                  {cash > 0 && cash >= grandTotal && (
+                    <Alert severity="info" sx={{ mt: 1, borderRadius: 2, py: 0 }}>
+                      💰 เงินทอน: <strong>฿{change.toLocaleString()}</strong>
+                    </Alert>
+                  )}
+                  {cash > 0 && cash < grandTotal && (
+                    <Alert severity="error" sx={{ mt: 1, borderRadius: 2, py: 0 }}>
+                      เงินไม่พอ ขาดอีก ฿{(grandTotal - cash).toLocaleString()}
+                    </Alert>
+                  )}
+
+                  {/* Checkout button */}
+                  <Button fullWidth variant="contained" size="large" onClick={checkout}
+                    disabled={cart.length === 0}
+                    sx={{
+                      mt: 2, py: 1.5,
+                      background: 'linear-gradient(135deg, #43a047, #2e7d32)',
+                      fontSize: '1.1rem',
+                      '&:hover': { background: 'linear-gradient(135deg, #388e3c, #1b5e20)' },
+                    }}
+                    startIcon={<span className="material-icons">point_of_sale</span>}>
+                    ชำระเงิน
+                  </Button>
+
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textAlign: 'center', mt: 1 }}>
+                    โค้ดที่ใช้ได้: SAVE10, SAVE20, OFF50, OFF100
+                  </Typography>
+                </Paper>
+              </Grid>
+            </Grid>
+
+            {/* Footer */}
+            <Box sx={{ mt: 4, textAlign: 'center', pb: 2 }}>
+              <Typography variant="body2" color="text.secondary">
+                © 2026 Point of Sale & Inventory Management System | OFF888
+              </Typography>
+            </Box>
+          </Container>
+
+          {/* Receipt Dialog */}
+          <Dialog open={receiptOpen} onClose={() => setReceiptOpen(false)} maxWidth="xs" fullWidth
+            PaperProps={{ sx: { borderRadius: 4 } }}>
+            {receiptData && (
+              <React.Fragment>
+                <DialogTitle sx={{ textAlign: 'center', bgcolor: '#1e88e5', color: 'white', py: 2 }}>
+                  <Typography variant="h6" fontWeight={700}>🧾 ใบเสร็จรับเงิน</Typography>
+                  <Typography variant="caption">เลขที่: {receiptData.receiptNo}</Typography>
+                </DialogTitle>
+                <DialogContent sx={{ pt: 3 }}>
+                  <Typography variant="caption" color="text.secondary" display="block" textAlign="center" gutterBottom>
+                    {receiptData.date}
+                  </Typography>
+                  <Divider sx={{ my: 1 }} />
+
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 700, fontSize: '0.75rem' }}>รายการ</TableCell>
+                        <TableCell align="center" sx={{ fontWeight: 700, fontSize: '0.75rem' }}>จำนวน</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700, fontSize: '0.75rem' }}>รวม</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {receiptData.items.map(item => (
+                        <TableRow key={item.id}>
+                          <TableCell sx={{ fontSize: '0.8rem' }}>{item.name}</TableCell>
+                          <TableCell align="center" sx={{ fontSize: '0.8rem' }}>{item.qty}</TableCell>
+                          <TableCell align="right" sx={{ fontSize: '0.8rem' }}>฿{(item.price * item.qty).toLocaleString()}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+
+                  <Divider sx={{ my: 1.5 }} />
+
+                  <Stack spacing={0.5} sx={{ px: 1 }}>
+                    <Stack direction="row" justifyContent="space-between">
+                      <Typography variant="body2">ราคารวม</Typography>
+                      <Typography variant="body2">฿{receiptData.subtotal.toLocaleString()}</Typography>
+                    </Stack>
+                    {receiptData.discountAmount > 0 && (
+                      <Stack direction="row" justifyContent="space-between">
+                        <Typography variant="body2" color="success.main">
+                          ส่วนลด ({receiptData.appliedDiscount.label})
+                        </Typography>
+                        <Typography variant="body2" color="success.main">-฿{receiptData.discountAmount.toLocaleString()}</Typography>
+                      </Stack>
+                    )}
+                    <Stack direction="row" justifyContent="space-between">
+                      <Typography variant="body2">VAT 7%</Typography>
+                      <Typography variant="body2">฿{receiptData.vat.toLocaleString()}</Typography>
+                    </Stack>
+                    <Divider />
+                    <Stack direction="row" justifyContent="space-between">
+                      <Typography fontWeight={700}>ยอดชำระ</Typography>
+                      <Typography fontWeight={700} color="primary">฿{receiptData.grandTotal.toLocaleString()}</Typography>
+                    </Stack>
+                    <Stack direction="row" justifyContent="space-between">
+                      <Typography variant="body2">รับเงิน</Typography>
+                      <Typography variant="body2">฿{receiptData.cash.toLocaleString()}</Typography>
+                    </Stack>
+                    <Stack direction="row" justifyContent="space-between" sx={{ bgcolor: '#e8f5e9', p: 1, borderRadius: 1 }}>
+                      <Typography fontWeight={700} color="success.main">เงินทอน</Typography>
+                      <Typography fontWeight={700} color="success.main">฿{receiptData.change.toLocaleString()}</Typography>
+                    </Stack>
+                  </Stack>
+
+                  <Typography variant="caption" color="text.secondary" display="block" textAlign="center" sx={{ mt: 2 }}>
+                    ขอบคุณที่ใช้บริการ 🙏
+                  </Typography>
+                </DialogContent>
+                <DialogActions sx={{ justifyContent: 'center', pb: 3 }}>
+                  <Button onClick={() => setReceiptOpen(false)} variant="contained">ปิด</Button>
+                </DialogActions>
+              </React.Fragment>
+            )}
+          </Dialog>
+
+          {/* Snackbar */}
+          <Snackbar open={snackbar.open} autoHideDuration={2500}
+            onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+            anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+            <Alert severity={snackbar.severity} variant="filled" sx={{ borderRadius: 3 }}
+              onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}>
+              {snackbar.message}
+            </Alert>
+          </Snackbar>
+        </ThemeProvider>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
+
